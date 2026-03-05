@@ -12,11 +12,24 @@ except ImportError:
         SubHelper = None
 
 class EmbySubSync(_PluginBase):
-    # 对齐新版 V2 的元数据要求
-    plugin_name = "Emby 订阅同步"
-    plugin_desc = "监控入库或转移事件，自动同步更新电视剧订阅进度。"
+    # 插件名称
+    plugin_name = "Emby入库刷新步"
+    # 插件描述
+    plugin_desc = "据Emby的入库通知刷新已订阅的电视剧集数"
+    # 插件图标
+    plugin_icon = "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/refs/heads/main/icons/cloud.png"
+    # 插件版本
+    plugin_version = "1.3.0"
+    # 插件作者
     plugin_author = "BigApple96"
-    plugin_version = "1.5.0"
+    # 作者主页
+    author_url = "https://github.com/BigApple96"
+    # 插件配置项ID前缀
+    plugin_config_prefix = "embysubsync_"
+    # 加载顺序
+    plugin_order = 20
+    # 可使用的用户级别
+    auth_level = 1
 
     def init_plugin(self, config: dict = None):
         self.enabled = config.get("enabled") if config else True
