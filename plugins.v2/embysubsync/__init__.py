@@ -12,46 +12,57 @@ except ImportError:
         SubHelper = None
 
 class EmbySubSync(_PluginBase):
-    __name__ = "Emby 订阅同步"
-    __description__ = "监控入库或转移事件，自动同步更新电视剧订阅进度。"
-    __author__ = "BigApple96"
-    __version__ = "1.4.1"
+    # 对齐新版 V2 的元数据要求
+    plugin_name = "Emby 订阅同步"
+    plugin_desc = "监控入库或转移事件，自动同步更新电视剧订阅进度。"
+    plugin_author = "BigApple96"
+    plugin_version = "1.5.0"
 
     def init_plugin(self, config: dict = None):
         self.enabled = config.get("enabled") if config else True
         
-        # 动态匹配事件类型，手动注册
-        target_events = ["TransferComplete", "MediaAddedSuccess", "MediaAdded", "MEDIA_ADDED"]
-        matched_events = []
-        
+        # 动态匹配事件类型并手动注册
+        target_events = ["TransferComplete", "MediaAddedSuccess", "MediaAdded"]
+        self.event_type = None
         for name in target_events:
             if hasattr(EventType, name):
-                etype = getattr(EventType, name)
-                # 手动注册
-                EventManager.register(etype)(self.on_event)
-                matched_events.append(name)
-        
-        if matched_events:
-            self.info(f"【EmbySubSync】插件已启动，监听事件: {', '.join(matched_events)}")
-        else:
-            self.error("【EmbySubSync】启动失败：无法匹配系统入库事件类型")
+                self.event_type = getattr(EventType, name)
+                EventManager.register(self.event_type)(self.on_event)
+                self.info(f"【EmbySubSync】已成功监听事件: {name}")
+                break
 
+    # --- 必须实现的抽象方法 (Abstract Methods) ---
+    def get_api(self) -> List[dict]:
+        """补全基类要求"""
+        return []
+
+    def get_form(self) -> List[dict]:
+        """补全基类要求，即原 get_plugin_config"""
+        return [
+            {
+                "name": "enabled",
+                "type": "switch",
+                "label": "启用自动同步",
+                "default": True
+            }
+        ]
+
+    def get_page(self) -> List[dict]:
+        """补全基类要求"""
+        return []
+
+    def get_state(self) -> bool:
+        """补全基类要求"""
+        return self.enabled
+
+    # --- 逻辑处理 ---
     def get_event_filters(self) -> List[EventType]:
-        filters = []
-        for name in ["TransferComplete", "MediaAddedSuccess", "MediaAdded"]:
-            if hasattr(EventType, name):
-                filters.append(getattr(EventType, name))
-        return filters
-
-    def get_plugin_config(self) -> List[dict]:
-        return [{"name": "enabled", "type": "switch", "label": "启用自动同步", "default": True}]
+        return [self.event_type] if self.event_type else []
 
     def on_event(self, event_data: Dict[str, Any]):
-        """处理进度同步"""
         if not self.enabled or not event_data or not SubHelper:
             return
 
-        # 提取元数据
         meta = event_data.get("meta") or event_data
         category = event_data.get("category") or (meta.get("category") if isinstance(meta, dict) else None)
         
@@ -75,7 +86,6 @@ class EmbySubSync(_PluginBase):
         if not subs:
             return
 
-        # 核心循环，已补全冒号
         for sub in subs:
             is_match = False
             if tmdb_id and sub.get("tmdb_id") and str(sub.get("tmdb_id")) == str(tmdb_id):
