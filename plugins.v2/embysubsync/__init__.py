@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 from app.core.event import EventManager, EventType
 from app.plugins import _PluginBase
 
@@ -31,7 +31,7 @@ class EmbySubSync(_PluginBase):
     # 可使用的用户级别
     auth_level = 1
 
-    # 参数规范
+    # 参数规范：下划线开头
     _enabled = False
     _event_types = []
 
@@ -47,9 +47,11 @@ class EmbySubSync(_PluginBase):
             if hasattr(EventType, name):
                 self._event_types.append(getattr(EventType, name))
 
-    def get_form(self) -> Tuple[List[dict], Dict[str, Any]]:
+    def get_form(self):
         """
-        拼装插件配置页面，需要返回两块数据：1、页面配置；2、数据结构
+        拼装插件配置页面
+        1、返回页面布局 (List)
+        2、返回数据结构 (Dict)
         """
         return [
             {
@@ -86,7 +88,7 @@ class EmbySubSync(_PluginBase):
         if not self._enabled or not event_data or not SubHelper:
             return
 
-        # 数据提取
+        # 核心逻辑：数据提取
         meta = event_data.get("meta") or event_data
         category = event_data.get("category") or (meta.get("category") if isinstance(meta, dict) else None)
         
