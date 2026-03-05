@@ -1,13 +1,14 @@
 {
   "EmbySubSync": {
-        "name": "EmbySubSync",
-        "description": "Emby 订阅同步",
+        "name": "Emby入库刷新",
+        "description": "根据Emby的入库通知刷新已订阅的电视剧集数",
+        "labels": "Emby",
         "version": "1.2.1",
         "icon": "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/refs/heads/main/icons/cloud.png",
         "author": "BigApple96",
         "level": 1,
         "history": {
-            "v1.2.1": "测试",
+            "v1.3.0": "测试",
             "v1.0.0": "发布"
         }
     }
