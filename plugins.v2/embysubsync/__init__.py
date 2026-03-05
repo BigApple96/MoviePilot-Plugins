@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 from app.core.event import EventManager, EventType
 from app.plugins import _PluginBase
 
@@ -47,11 +47,9 @@ class EmbySubSync(_PluginBase):
             if hasattr(EventType, name):
                 self._event_types.append(getattr(EventType, name))
 
-    def get_form(self):
+    def get_form(self) -> Tuple[List[dict], Dict[str, Any]]:
         """
-        拼装插件配置页面
-        1、返回页面布局 (List)
-        2、返回数据结构 (Dict)
+        拼装插件配置页面，需要返回两块数据：1、页面配置；2、数据结构
         """
         return [
             {
