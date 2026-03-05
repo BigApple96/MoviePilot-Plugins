@@ -15,7 +15,7 @@ class EmbySubSync(_PluginBase):
     __name__ = "Emby 订阅同步"
     __description__ = "监控 Emby 入库通知，自动同步更新电视剧订阅进度。"
     __author__ = "BigApple96"
-    __version__ = "1.0.0"
+    __version__ = "1.2.0"
 
     def init_plugin(self, config: dict = None):
         self.enabled = config.get("enabled") if config else True
