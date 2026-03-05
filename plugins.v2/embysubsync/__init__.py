@@ -33,23 +33,21 @@ class EmbySubSync(_PluginBase):
 
     # 私有属性
     _enabled = False
-    _event_type = None
+    _event_types = []
 
     def init_plugin(self, config: dict = None):
         """初始化"""
         if config:
             self._enabled = config.get("enabled")
         
-        # 动态匹配事件类型并手动注册
+        # 识别当前系统支持的事件类型
         target_events = ["TransferComplete", "MediaAddedSuccess", "MediaAdded"]
-        self._event_type = None
+        self._event_types = []
         for name in target_events:
             if hasattr(EventType, name):
-                self._event_type = getattr(EventType, name)
-                # 手动注册事件回调
-                EventManager.register(self._event_type)(self.on_event)
-                self.info(f"【EmbySubSync】已成功监听事件: {name}")
-                break
+                etype = getattr(EventType, name)
+                self._event_types.append(etype)
+                # 不再这里手动 register，系统会通过 get_event_filters 自动挂载
 
     def get_form(self) -> List[dict]:
         """获取配置表单"""
@@ -68,11 +66,12 @@ class EmbySubSync(_PluginBase):
 
     def get_event_filters(self) -> List[EventType]:
         """获取事件过滤"""
+        # 只要这里返回了事件列表，系统就会自动调用类的 on_event 方法
         if not self._enabled:
             return []
-        return [self._event_type] if self._event_type else []
+        return self._event_types
 
-    def on_event(self, event_data: Dict[str, Any]):
+    def on_event(self, event_type: EventType, event_data: Dict[str, Any]):
         """事件回调"""
         if not self._enabled or not event_data or not SubHelper:
             return
@@ -104,16 +103,14 @@ class EmbySubSync(_PluginBase):
 
         for sub in subs:
             is_match = False
-            # 匹配策略：优先 TMDB ID，其次标题
+            # 匹配策略
             if tmdb_id and sub.get("tmdb_id") and str(sub.get("tmdb_id")) == str(tmdb_id):
                 is_match = True
             elif sub.get("title") == title:
                 is_match = True
             
-            # 如果匹配成功且季号一致
             if is_match and int(sub.get("season") or 0) == season:
                 curr_ep = int(sub.get("current_episode") or 0)
-                # 仅当入库集数大于当前记录集数时更新
                 if episode > curr_ep:
                     sh.update_subscription(sub.get("id"), {"current_episode": episode})
                     self.info(f"【EmbySubSync】《{title}》同步成功: 第 {episode} 集")
