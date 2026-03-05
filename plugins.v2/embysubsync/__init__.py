@@ -19,7 +19,7 @@ class EmbySubSync(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/refs/heads/main/icons/cloud.png"
     # 插件版本
-    plugin_version = "1.3.2"
+    plugin_version = "1.3.4"
     # 插件作者
     plugin_author = "BigApple96"
     # 作者主页
@@ -31,7 +31,7 @@ class EmbySubSync(_PluginBase):
     # 可使用的用户级别
     auth_level = 1
 
-    # 参数命名规范：前面加_
+    # 参数规范
     _enabled = False
     _event_types = []
 
@@ -40,41 +40,53 @@ class EmbySubSync(_PluginBase):
         if config:
             self._enabled = config.get("enabled")
         
-        # 按照 mediawarp 风格，只在 init 里整理事件类型，不进行 register
+        # 识别支持的事件
         target_events = ["TransferComplete", "MediaAddedSuccess", "MediaAdded"]
         self._event_types = []
         for name in target_events:
             if hasattr(EventType, name):
                 self._event_types.append(getattr(EventType, name))
 
-    def get_form(self) -> List[dict]:
-        """获取配置表单"""
+    def get_form(self) -> Tuple[List[dict], Dict[str, Any]]:
+        """
+        拼装插件配置页面，需要返回两块数据：1、页面配置；2、数据结构
+        """
         return [
             {
-                "name": "enabled",
-                "type": "switch",
-                "label": "启用自动同步",
-                "default": False
+                "component": "VForm",
+                "content": [
+                    {
+                        "component": "VRow",
+                        "content": [
+                            {
+                                "component": "VCol",
+                                "props": {"cols": 12, "md": 12},
+                                "content": [
+                                    {
+                                        "component": "VSwitch",
+                                        "props": {
+                                            "model": "enabled",
+                                            "label": "启用插件",
+                                        },
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ],
             }
-        ]
-
-    def get_state(self) -> bool:
-        """获取插件状态"""
-        return self._enabled
+        ], {"enabled": False}
 
     def get_event_filters(self) -> List[EventType]:
         """获取事件过滤"""
-        # DDSRem 规范：系统根据此列表自动分发事件到 on_event
-        if not self._enabled:
-            return []
-        return self._event_types
+        return self._event_types if self._enabled else []
 
     def on_event(self, event: EventType, event_data: Dict[str, Any]):
         """事件回调"""
         if not self._enabled or not event_data or not SubHelper:
             return
 
-        # 按照 DDSRem 风格进行数据解构
+        # 数据提取
         meta = event_data.get("meta") or event_data
         category = event_data.get("category") or (meta.get("category") if isinstance(meta, dict) else None)
         
@@ -88,8 +100,6 @@ class EmbySubSync(_PluginBase):
 
         if not title or not episode:
             return
-
-        self.info(f"【EmbySubSync】正在处理: {title} S{season}E{episode}")
 
         sh = SubHelper()
         try:
@@ -114,13 +124,9 @@ class EmbySubSync(_PluginBase):
                     self.info(f"【EmbySubSync】《{title}》同步成功: 第 {episode} 集")
                 break
 
-    def get_api(self) -> List[dict]:
-        """获取API"""
-        return []
-
-    def get_page(self) -> List[dict]:
-        """获取页面"""
-        return []
+    def get_state(self) -> bool:
+        """获取状态"""
+        return self._enabled
 
     def stop_service(self):
         """停止服务"""
