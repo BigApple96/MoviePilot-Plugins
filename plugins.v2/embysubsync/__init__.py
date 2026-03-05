@@ -19,7 +19,7 @@ class EmbySubSync(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/refs/heads/main/icons/cloud.png"
     # 插件版本
-    plugin_version = "1.3.1"
+    plugin_version = "1.3.2"
     # 插件作者
     plugin_author = "BigApple96"
     # 作者主页
@@ -31,7 +31,7 @@ class EmbySubSync(_PluginBase):
     # 可使用的用户级别
     auth_level = 1
 
-    # 私有属性
+    # 参数命名规范：前面加_
     _enabled = False
     _event_types = []
 
@@ -40,14 +40,12 @@ class EmbySubSync(_PluginBase):
         if config:
             self._enabled = config.get("enabled")
         
-        # 识别当前系统支持的事件类型
+        # 按照 mediawarp 风格，只在 init 里整理事件类型，不进行 register
         target_events = ["TransferComplete", "MediaAddedSuccess", "MediaAdded"]
         self._event_types = []
         for name in target_events:
             if hasattr(EventType, name):
-                etype = getattr(EventType, name)
-                self._event_types.append(etype)
-                # 不再这里手动 register，系统会通过 get_event_filters 自动挂载
+                self._event_types.append(getattr(EventType, name))
 
     def get_form(self) -> List[dict]:
         """获取配置表单"""
@@ -66,21 +64,20 @@ class EmbySubSync(_PluginBase):
 
     def get_event_filters(self) -> List[EventType]:
         """获取事件过滤"""
-        # 只要这里返回了事件列表，系统就会自动调用类的 on_event 方法
+        # DDSRem 规范：系统根据此列表自动分发事件到 on_event
         if not self._enabled:
             return []
         return self._event_types
 
-    def on_event(self, event_type: EventType, event_data: Dict[str, Any]):
+    def on_event(self, event: EventType, event_data: Dict[str, Any]):
         """事件回调"""
         if not self._enabled or not event_data or not SubHelper:
             return
 
-        # 提取元数据
+        # 按照 DDSRem 风格进行数据解构
         meta = event_data.get("meta") or event_data
         category = event_data.get("category") or (meta.get("category") if isinstance(meta, dict) else None)
         
-        # 仅处理电视剧
         if category != "tv":
             return
 
@@ -91,6 +88,8 @@ class EmbySubSync(_PluginBase):
 
         if not title or not episode:
             return
+
+        self.info(f"【EmbySubSync】正在处理: {title} S{season}E{episode}")
 
         sh = SubHelper()
         try:
@@ -103,7 +102,6 @@ class EmbySubSync(_PluginBase):
 
         for sub in subs:
             is_match = False
-            # 匹配策略
             if tmdb_id and sub.get("tmdb_id") and str(sub.get("tmdb_id")) == str(tmdb_id):
                 is_match = True
             elif sub.get("title") == title:
