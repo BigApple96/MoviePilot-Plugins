@@ -24,8 +24,6 @@ class EmbySubSync(_PluginBase):
     plugin_author = "BigApple96"
     # 作者主页
     author_url = "https://github.com/BigApple96"
-    # 插件配置项ID前缀
-    plugin_config_prefix = "embysubsync_"
     # 加载顺序
     plugin_order = 20
     # 可使用的用户级别
