@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 from app.core.event import EventManager, EventType
 from app.plugins import _PluginBase
 
