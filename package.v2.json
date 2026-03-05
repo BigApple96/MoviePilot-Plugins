@@ -2,7 +2,7 @@
   "EmbySubSync": {
         "name": "EmbySubSync",
         "description": "Emby 订阅同步",
-        "version": "1.0.0",
+        "version": "1.2.1",
         "icon": "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/refs/heads/main/icons/cloud.png",
         "author": "BigApple96",
         "level": 1,
