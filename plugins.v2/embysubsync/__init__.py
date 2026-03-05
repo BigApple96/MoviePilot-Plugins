@@ -1,6 +1,7 @@
 from typing import Any, Dict, List, Tuple
 from app.core.event import EventManager, EventType
 from app.plugins import _PluginBase
+from app.log import logger
 
 # 适配订阅助手
 try:
@@ -41,9 +42,9 @@ class EmbySubSync(_PluginBase):
                 self.event_types.append(getattr(EventType, name))
         
         if self.event_types:
-            self.info(f"【EmbySubSync】初始化成功，将通过系统分发监听 {len(self.event_types)} 个事件")
+            logger.info(f"【EmbySubSync】初始化成功，将通过系统分发监听 {len(self.event_types)} 个事件")
         else:
-            self.error("【EmbySubSync】初始化失败：未找到可用的事件枚举")
+            logger.error("【EmbySubSync】初始化失败：未找到可用的事件枚举")
 
     def get_event_filters(self) -> List[EventType]:
         """
@@ -60,7 +61,7 @@ class EmbySubSync(_PluginBase):
         if not self.enabled or not event_data or not SubHelper:
             return
 
-        self.info(f"【EmbySubSync】收到事件通知: {event_type}")
+        logger.info(f"【EmbySubSync】收到事件通知: {event_type}")
         
         # 提取元数据
         meta = event_data.get("meta") or event_data
@@ -98,7 +99,7 @@ class EmbySubSync(_PluginBase):
                 curr_ep = int(sub.get("current_episode") or 0)
                 if episode > curr_ep:
                     sh.update_subscription(sub.get("id"), {"current_episode": episode})
-                    self.info(f"【EmbySubSync】《{title}》同步成功: 第 {episode} 集")
+                    logger.info(f"【EmbySubSync】《{title}》同步成功: 第 {episode} 集")
                 break
 
     def get_state(self) -> bool: return True
