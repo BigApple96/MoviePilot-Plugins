@@ -49,7 +49,7 @@ class EmbySubSync(_PluginBase):
 
     def get_form(self) -> Tuple[List[dict], Dict[str, Any]]:
         """
-        拼装插件配置页面，需要返回两块数据：1、页面配置；2、数据结构
+        拼装插件配置页面，严格遵循模板
         """
         return [
             {
@@ -77,11 +77,13 @@ class EmbySubSync(_PluginBase):
             }
         ], {"enabled": False}
 
-    def get_page(self) -> List[dict]:
-        pass
-
     def get_api(self) -> List[Dict[str, Any]]:
-        pass
+        """获取插件 API 接口定义"""
+        return []
+
+    def get_page(self) -> List[Dict[str, Any]]:
+        """获取插件页面定义"""
+        return []
 
     def get_event_filters(self) -> List[EventType]:
         """获取事件过滤"""
