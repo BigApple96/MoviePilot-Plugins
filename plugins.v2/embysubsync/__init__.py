@@ -13,9 +13,9 @@ except ImportError:
 
 class EmbySubSync(_PluginBase):
     # 插件名称
-    plugin_name = "Emby入库刷新步"
+    plugin_name = "Emby入库刷新"
     # 插件描述
-    plugin_desc = "据Emby的入库通知刷新已订阅的电视剧集数"
+    plugin_desc = "根据Emby的入库通知刷新已订阅的电视剧集数"
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/refs/heads/main/icons/cloud.png"
     # 插件版本
