@@ -80,6 +80,9 @@ class EmbySubSync(_PluginBase):
     def get_page(self) -> List[dict]:
         pass
 
+    def get_api(self) -> List[Dict[str, Any]]:
+        pass
+
     def get_event_filters(self) -> List[EventType]:
         """获取事件过滤"""
         return self._event_types if self._enabled else []
