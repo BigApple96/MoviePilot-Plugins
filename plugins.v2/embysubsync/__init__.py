@@ -42,6 +42,9 @@ class EmbySubSync(_PluginBase):
                 self.info(f"【EmbySubSync】已成功监听事件: {name}")
                 break
 
+    def get_state(self) -> bool:
+        """返回插件运行状态"""
+        return True
     # --- 必须实现的抽象方法 (Abstract Methods) ---
     def get_api(self) -> List[dict]:
         """补全基类要求"""
