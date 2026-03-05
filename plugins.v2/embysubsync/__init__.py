@@ -31,21 +31,78 @@ class EmbySubSync(_PluginBase):
     # 可使用的用户级别
     auth_level = 1
 
-    # 参数规范：下划线开头
-    _enabled = True
-    _event_types = []
-
     def init_plugin(self, config: dict = None):
-        """初始化"""
-        if config:
-            self._enabled = config.get("enabled")
+        self.enabled = config.get("enabled") if config else True
         
-        # 识别支持的事件
-        target_events = ["TransferComplete", "MediaAddedSuccess", "MediaAdded"]
-        self._event_types = []
-        for name in target_events:
+        # 动态获取当前环境支持的事件类型
+        self.event_types = []
+        for name in ["TransferComplete", "MediaAddedSuccess", "MediaAdded"]:
             if hasattr(EventType, name):
-                self._event_types.append(getattr(EventType, name))
+                self.event_types.append(getattr(EventType, name))
+        
+        if self.event_types:
+            self.info(f"【EmbySubSync】初始化成功，将通过系统分发监听 {len(self.event_types)} 个事件")
+        else:
+            self.error("【EmbySubSync】初始化失败：未找到可用的事件枚举")
+
+    def get_event_filters(self) -> List[EventType]:
+        """
+        这是 MoviePilot 核心调用的标准接口。
+        系统会自动将此处声明的事件分发给本类的回调函数。
+        """
+        return self.event_types
+
+    def callback(self, event_type: EventType, event_data: Dict[str, Any]):
+        """
+        这是插件基类定义的标准回调入口。
+        不再依赖 register 装饰器，直接接收系统分发的事件。
+        """
+        if not self.enabled or not event_data or not SubHelper:
+            return
+
+        self.info(f"【EmbySubSync】收到事件通知: {event_type}")
+        
+        # 提取元数据
+        meta = event_data.get("meta") or event_data
+        category = event_data.get("category") or (meta.get("category") if isinstance(meta, dict) else None)
+        
+        if category != "tv":
+            return
+
+        title = event_data.get("title") or meta.get("title")
+        season = int(event_data.get("season") or meta.get("season") or 0)
+        episode = int(event_data.get("episode") or meta.get("episode") or 0)
+        tmdb_id = event_data.get("tmdb_id") or meta.get("tmdb_id")
+
+        if not title or not episode:
+            return
+
+        # 执行同步
+        sh = SubHelper()
+        try:
+            subs = sh.list_subscriptions()
+        except:
+            subs = sh.get_subscriptions()
+
+        if not subs:
+            return
+
+        for sub in subs:
+            is_match = False
+            if tmdb_id and sub.get("tmdb_id") and str(sub.get("tmdb_id")) == str(tmdb_id):
+                is_match = True
+            elif sub.get("title") == title:
+                is_match = True
+            
+            if is_match and int(sub.get("season") or 0) == season:
+                curr_ep = int(sub.get("current_episode") or 0)
+                if episode > curr_ep:
+                    sh.update_subscription(sub.get("id"), {"current_episode": episode})
+                    self.info(f"【EmbySubSync】《{title}》同步成功: 第 {episode} 集")
+                break
+
+    def get_state(self) -> bool: return True
+    def stop_service(self): pass
 
     def get_form(self) -> Tuple[List[dict], Dict[str, Any]]:
         """
@@ -75,7 +132,7 @@ class EmbySubSync(_PluginBase):
                     }
                 ],
             }
-        ], {"enabled": False}
+        ], {"enabled": True}
 
     def get_api(self) -> List[Dict[str, Any]]:
         """获取插件 API 接口定义"""
@@ -84,58 +141,3 @@ class EmbySubSync(_PluginBase):
     def get_page(self) -> List[Dict[str, Any]]:
         """获取插件页面定义"""
         return []
-
-    def get_event_filters(self) -> List[EventType]:
-        """获取事件过滤"""
-        return self._event_types if self._enabled else []
-
-    def on_event(self, event: EventType, event_data: Dict[str, Any]):
-        """事件回调"""
-        if not self._enabled or not event_data or not SubHelper:
-            return
-
-        # 核心逻辑：数据提取
-        meta = event_data.get("meta") or event_data
-        category = event_data.get("category") or (meta.get("category") if isinstance(meta, dict) else None)
-        
-        if category != "tv":
-            return
-
-        title = event_data.get("title") or meta.get("title")
-        season = int(event_data.get("season") or meta.get("season") or 0)
-        episode = int(event_data.get("episode") or meta.get("episode") or 0)
-        tmdb_id = event_data.get("tmdb_id") or meta.get("tmdb_id")
-
-        if not title or not episode:
-            return
-
-        sh = SubHelper()
-        try:
-            subs = sh.list_subscriptions()
-        except:
-            subs = sh.get_subscriptions()
-
-        if not subs:
-            return
-
-        for sub in subs:
-            is_match = False
-            if tmdb_id and sub.get("tmdb_id") and str(sub.get("tmdb_id")) == str(tmdb_id):
-                is_match = True
-            elif sub.get("title") == title:
-                is_match = True
-            
-            if is_match and int(sub.get("season") or 0) == season:
-                curr_ep = int(sub.get("current_episode") or 0)
-                if episode > curr_ep:
-                    sh.update_subscription(sub.get("id"), {"current_episode": episode})
-                    self.info(f"【EmbySubSync】《{title}》同步成功: 第 {episode} 集")
-                break
-
-    def get_state(self) -> bool:
-        """获取状态"""
-        return self._enabled
-
-    def stop_service(self):
-        """停止服务"""
-        pass
