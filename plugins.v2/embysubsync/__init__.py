@@ -32,7 +32,7 @@ class EmbySubSync(_PluginBase):
     auth_level = 1
 
     # 参数规范：下划线开头
-    _enabled = False
+    _enabled = True
     _event_types = []
 
     def init_plugin(self, config: dict = None):
