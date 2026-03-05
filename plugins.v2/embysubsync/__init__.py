@@ -2,51 +2,61 @@ from typing import Any, Dict, List
 from app.core.event import EventManager, EventType
 from app.plugins import _PluginBase
 
-# 1. 适配订阅助手
+# 适配订阅助手路径
 try:
-    from app.modules.subscription import SubscriptionHelper as SubHelper
+    from app.modules.subscription.sub_helper import SubHelper
 except ImportError:
     try:
-        from app.modules.subscription.sub_helper import SubHelper
+        from app.modules.subscription import SubscriptionHelper as SubHelper
     except ImportError:
         SubHelper = None
 
-# 2. 动态获取事件类型，避开不存在的属性导致的崩溃
-_EVENT_TYPE = getattr(EventType, "MediaAddedSuccess", getattr(EventType, "MediaAdded", None))
-
 class EmbySubSync(_PluginBase):
     __name__ = "Emby 订阅同步"
-    __description__ = "监控 Emby 入库通知，自动同步更新电视剧订阅进度。"
+    __description__ = "监控文件转移完成或媒体入库，自动同步更新电视剧订阅进度。"
     __author__ = "BigApple96"
-    __version__ = "1.2.9"
+    __version__ = "1.3.8"
 
     def init_plugin(self, config: dict = None):
         self.enabled = config.get("enabled") if config else True
 
     def get_event_filters(self) -> List[EventType]:
-        # 返回系统支持的事件类型
-        return [_EVENT_TYPE] if _EVENT_TYPE else []
+        # 仿照 p115strgmsub，监听转移完成和媒体添加
+        return [EventType.TransferComplete, EventType.MediaAdded]
 
     def get_plugin_config(self) -> List[dict]:
         return [{"name": "enabled", "type": "switch", "label": "启用自动同步", "default": True}]
 
-    # 使用 getattr 动态绑定装饰器，防止类加载时报错
-    @EventManager.register(_EVENT_TYPE)
-    def on_event(self, event_data: Dict[str, Any]):
-        """处理入库成功后的进度同步"""
+    @EventManager.register(EventType.TransferComplete)
+    def on_transfer_complete(self, event_data: Dict[str, Any]):
+        """监听转移完成事件"""
+        self.info("【EmbySubSync】收到转移完成通知，准备同步...")
+        self.process_sync(event_data)
+
+    @EventManager.register(EventType.MediaAdded)
+    def on_media_added(self, event_data: Dict[str, Any]):
+        """监听媒体添加事件"""
+        self.info("【EmbySubSync】收到媒体入库通知抽，准备同步...")
+        self.process_sync(event_data)
+
+    def process_sync(self, event_data: Dict[str, Any]):
         if not self.enabled or not event_data or not SubHelper:
             return
 
-        # 仅处理电视剧分类
-        if event_data.get("category") != "tv":
+        # 核心逻辑：提取标题、季、集
+        meta = event_data.get("meta") or event_data
+        category = event_data.get("category") or (meta.get("category") if isinstance(meta, dict) else None)
+        
+        if category != "tv":
             return
 
-        title = event_data.get("title")
-        season = int(event_data.get("season") or 0)
-        episode = int(event_data.get("episode") or 0)
-        tmdb_id = event_data.get("tmdb_id")
+        title = event_data.get("title") or meta.get("title")
+        season = int(event_data.get("season") or meta.get("season") or 0)
+        episode = int(event_data.get("episode") or meta.get("episode") or 0)
+        tmdb_id = event_data.get("tmdb_id") or meta.get("tmdb_id")
 
-        self.info(f"【EmbySubSync】检测到入库: {title} S{season}E{episode}")
+        if not title or not episode:
+            return
 
         sh = SubHelper()
         try:
@@ -68,7 +78,7 @@ class EmbySubSync(_PluginBase):
                 current_saved_ep = int(sub.get("current_episode") or 0)
                 if episode > current_saved_ep:
                     sh.update_subscription(sub.get("id"), {"current_episode": episode})
-                    self.info(f"【EmbySubSync】《{title}》订阅进度已同步至第 {episode} 集")
+                    self.info(f"【EmbySubSync】《{title}》订阅进度同步成功：第 {episode} 集")
                 break
 
     def stop_service(self):
