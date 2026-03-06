@@ -1,7 +1,10 @@
 from typing import Any, Dict, List, Tuple
-from app.core.event import EventManager, EventType
+from app.schemas import WebhookEventInfo
+from app.schemas.types import EventType
 from app.plugins import _PluginBase
 from app.log import logger
+from app.chain.subscribe import SubscribeOper
+from app.plugins.subscribe import SyncHandler
 
 # 适配订阅助手
 try:
@@ -20,7 +23,7 @@ class EmbySubSync(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/refs/heads/main/icons/cloud.png"
     # 插件版本
-    plugin_version = "1.3.7"
+    plugin_version = "1.3.8"
     # 插件作者
     plugin_author = "BigApple96"
     # 作者主页
@@ -32,77 +35,59 @@ class EmbySubSync(_PluginBase):
     # 可使用的用户级别
     auth_level = 1
 
+    # 私有变量
+    _enble = False
+    _webhook_actions = {
+        "library.new": "新入库"
+    }
+
     def init_plugin(self, config: dict = None):
-        self.enabled = config.get("enabled") if config else True
-        
-        # 动态获取当前环境支持的事件类型
-        self.event_types = []
-        for name in ["TransferComplete", "MediaAddedSuccess", "MediaAdded"]:
-            if hasattr(EventType, name):
-                self.event_types.append(getattr(EventType, name))
-        
-        if self.event_types:
-            logger.info(f"【EmbySubSync】初始化成功，将通过系统分发监听 {len(self.event_types)} 个事件")
-        else:
-            logger.error("【EmbySubSync】初始化失败：未找到可用的事件枚举")
+        if config
+            self._enble = config.get("enabled")
 
-    def get_event_filters(self) -> List[EventType]:
+    @eventmanager.register(EventType.WebhookMessage)
+    def send(self, event: Event):
         """
-        这是 MoviePilot 核心调用的标准接口。
-        系统会自动将此处声明的事件分发给本类的回调函数。
+        发送通知消息
         """
-        return self.event_types
-
-    def callback(self, event_type: EventType, event_data: Dict[str, Any]):
-        """
-        这是插件基类定义的标准回调入口。
-        不再依赖 register 装饰器，直接接收系统分发的事件。
-        """
-        if not self.enabled or not event_data or not SubHelper:
+        if not self._enabled:
+            return
+        
+        event_info: WebhookEventInfo = event.event_data
+        if not event_info:
             return
 
-        logger.info(f"【EmbySubSync】收到事件通知: {event_type}")
-        
-        # 提取元数据
-        meta = event_data.get("meta") or event_data
-        category = event_data.get("category") or (meta.get("category") if isinstance(meta, dict) else None)
-        
-        if category != "tv":
+        # 不在支持范围不处理
+        if not self._webhook_actions.get(event_info.event):
             return
 
-        title = event_data.get("title") or meta.get("title")
-        season = int(event_data.get("season") or meta.get("season") or 0)
-        episode = int(event_data.get("episode") or meta.get("episode") or 0)
-        tmdb_id = event_data.get("tmdb_id") or meta.get("tmdb_id")
+        subscribe_oper = SubscribeOper(db=db)
+        sub_item = None
 
-        if not title or not episode:
-            return
+        # 1. 优先使用 TMDB ID 匹配，这是最准确的
+        if event_info.tmdb_id:
+            # 注意：不同版本的 MP 这里的 API 名称可能略有不同，通常为 get_by_tmdbid 或 list 过滤
+            subs = subscribe_oper.list() or []
+            sub_item = next((s for s in subs if str(s.tmdb_id) == str(event_info.tmdb_id)), None)
 
-        # 执行同步
-        sh = SubHelper()
-        try:
-            subs = sh.list_subscriptions()
-        except:
-            subs = sh.get_subscriptions()
+        # 2. 如果没找到，尝试通过标题匹配
+        if not sub_item and event_info.item_name:
+            sub_item = subscribe_oper.get_by_title(event_info.item_name)
 
-        if not subs:
-            return
-
-        for sub in subs:
-            is_match = False
-            if tmdb_id and sub.get("tmdb_id") and str(sub.get("tmdb_id")) == str(tmdb_id):
-                is_match = True
-            elif sub.get("title") == title:
-                is_match = True
+        if sub_item:
+            logger.info(f"已匹配到订阅任务：{sub_item.name} (ID: {sub_item.id})")
             
-            if is_match and int(sub.get("season") or 0) == season:
-                curr_ep = int(sub.get("current_episode") or 0)
-                if episode > curr_ep:
-                    sh.update_subscription(sub.get("id"), {"current_episode": episode})
-                    logger.info(f"【EmbySubSync】《{title}》同步成功: 第 {episode} 集")
-                break
+            # 实例化订阅处理器
+            sync_handler = SyncHandler()
+            
+            # 准备当前已有的媒体信息 (以《太平年》S1E2为例)
+            # 构造格式为 {季号: [集数列表]}
+            exist_media = {event_info.season_id: [event_info.episode_id]}
 
-    def get_state(self) -> bool: return True
+            # 入库后立即触发搜索（例如洗版）
+            sync_handler.search(sub=sub_item, media_info=sub_item)
+
+    def get_state(self) -> bool: return self._enabled
     def stop_service(self): pass
 
     def get_form(self) -> Tuple[List[dict], Dict[str, Any]]:
