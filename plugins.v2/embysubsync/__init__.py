@@ -53,8 +53,10 @@ class EmbySubSync(_PluginBase):
             return
 
         if event_info.tmdb_id:
+             logger.info(f"获取到 {event_info.tmdb_id} 的入库消息")
             if SubscribeOper().exists(tmdbid=event_info.tmdb_id, season=event_info.season_id):
                 subscribe = SubscribeOper().get("tmdbid", tmdbid=event_info.tmdb_id)
+                logger.info(f"查询到 {subscribe.name} 的订阅信息")
                 SubscribeChain().search(sid=subscribe.id)
 
     def get_state(self) -> bool: return self._enabled
