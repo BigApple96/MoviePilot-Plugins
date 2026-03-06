@@ -1,0 +1,101 @@
+from typing import Any, Dict, List, Tuple
+from app.core.event import eventmanager, Event
+from app.schemas import WebhookEventInfo
+from app.plugins import _PluginBase
+from app.log import logger
+from app.db.subscribe_oper import SubscribeOper
+from app.chain.subscribe import SubscribeChain
+from app.schemas.types import EventType
+
+class EmbySubSync(_PluginBase):
+    # 插件名称
+    plugin_name = "Emby入库刷新"
+    # 插件描述
+    plugin_desc = "根据Emby的入库通知刷新已订阅的电视剧集数"
+    # 插件图标
+    plugin_icon = "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/refs/heads/main/icons/cloud.png"
+    # 插件版本
+    plugin_version = "1.3.11"
+    # 插件作者
+    plugin_author = "BigApple96"
+    # 作者主页
+    author_url = "https://github.com/BigApple96"
+    # 插件配置项ID前缀
+    plugin_config_prefix = "embysubsync_"
+    # 加载顺序
+    plugin_order = 20
+    # 可使用的用户级别
+    auth_level = 1
+
+    # 私有变量
+    _enble = False
+    _webhook_actions = {
+        "library.new": "新入库"
+    }
+
+    def init_plugin(self, config: dict = None):
+        if config:
+            self._enabled = config.get("enabled")
+
+    @eventmanager.register(EventType.WebhookMessage)
+    def send(self, event: Event):
+        """
+        发送通知消息
+        """
+        if not self._enabled:
+            return
+        
+        event_info: WebhookEventInfo = event.event_data
+        if not event_info:
+            return
+
+        if not self._webhook_actions.get(event_info.event):
+            return
+
+        if event_info.tmdb_id:
+            logger.info(f"获取到 {event_info.tmdb_id} 的入库消息")
+            if SubscribeOper().exists(tmdbid=event_info.tmdb_id, season=event_info.season_id):
+                subscribe = SubscribeOper().get("tmdbid", tmdbid=event_info.tmdb_id)
+                logger.info(f"查询到 {subscribe.name} 的订阅信息")
+                SubscribeChain().search(sid=subscribe.id)
+
+    def get_state(self) -> bool: return self._enabled
+    def stop_service(self): pass
+
+    def get_form(self) -> Tuple[List[dict], Dict[str, Any]]:
+        """
+        拼装插件配置页面，严格遵循模板
+        """
+        return [
+            {
+                "component": "VForm",
+                "content": [
+                    {
+                        "component": "VRow",
+                        "content": [
+                            {
+                                "component": "VCol",
+                                "props": {"cols": 12, "md": 12},
+                                "content": [
+                                    {
+                                        "component": "VSwitch",
+                                        "props": {
+                                            "model": "enabled",
+                                            "label": "启用插件",
+                                        },
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            }
+        ], {"enabled": True}
+
+    def get_api(self) -> List[Dict[str, Any]]:
+        """获取插件 API 接口定义"""
+        return []
+
+    def get_page(self) -> List[Dict[str, Any]]:
+        """获取插件页面定义"""
+        return []
