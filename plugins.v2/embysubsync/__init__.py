@@ -42,8 +42,8 @@ class EmbySubSync(_PluginBase):
     }
 
     def init_plugin(self, config: dict = None):
-        if config
-            self._enble = config.get("enabled")
+        if config:
+            self._enabled = config.get("enabled")
 
     @eventmanager.register(EventType.WebhookMessage)
     def send(self, event: Event):
