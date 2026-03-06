@@ -5,6 +5,7 @@ from app.plugins import _PluginBase
 from app.log import logger
 from app.db.subscribe_oper import SubscribeOper
 from app.chain.subscribe import SubscribeChain
+from app.schemas.types import EventType
 
 class EmbySubSync(_PluginBase):
     # 插件名称
