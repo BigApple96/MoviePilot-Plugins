@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Tuple
+from app.core.event import eventmanager, Event
 from app.schemas import WebhookEventInfo
-from app.schemas.types import EventType
 from app.plugins import _PluginBase
 from app.log import logger
 from app.db.subscribe_oper import SubscribeOper
@@ -14,7 +14,7 @@ class EmbySubSync(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/refs/heads/main/icons/cloud.png"
     # 插件版本
-    plugin_version = "1.3.10"
+    plugin_version = "1.3.11"
     # 插件作者
     plugin_author = "BigApple96"
     # 作者主页
