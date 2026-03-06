@@ -4,16 +4,7 @@ from app.schemas.types import EventType
 from app.plugins import _PluginBase
 from app.log import logger
 from app.db.subscribe_oper import SubscribeOper
-from app.chain.subscribe import SyncHandler
-
-# 适配订阅助手
-try:
-    from app.modules.subscription.sub_helper import SubHelper
-except ImportError:
-    try:
-        from app.modules.subscription import SubscriptionHelper as SubHelper
-    except ImportError:
-        SubHelper = None
+from app.chain.subscribe import SubscribeChain
 
 class EmbySubSync(_PluginBase):
     # 插件名称
@@ -23,7 +14,7 @@ class EmbySubSync(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/refs/heads/main/icons/cloud.png"
     # 插件版本
-    plugin_version = "1.3.9"
+    plugin_version = "1.3.10"
     # 插件作者
     plugin_author = "BigApple96"
     # 作者主页
@@ -63,7 +54,7 @@ class EmbySubSync(_PluginBase):
         if event_info.tmdb_id:
             if SubscribeOper().exists(tmdbid=event_info.tmdb_id, season=event_info.season_id):
                 subscribe = SubscribeOper().get("tmdbid", tmdbid=event_info.tmdb_id)
-                SyncHandler().search(sid=subscribe.id)
+                SubscribeChain().search(sid=subscribe.id)
 
     def get_state(self) -> bool: return self._enabled
     def stop_service(self): pass
