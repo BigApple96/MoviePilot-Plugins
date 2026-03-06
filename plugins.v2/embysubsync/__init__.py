@@ -61,7 +61,7 @@ class EmbySubSync(_PluginBase):
             return
 
         if event_info.tmdb_id:
-            if SubscribeOper().exists(tmdbid=event_info.tmdb_id, None, season=event_info.season_id):
+            if SubscribeOper().exists(tmdbid=event_info.tmdb_id, season=event_info.season_id):
                 subscribe = SubscribeOper().get("tmdbid", tmdbid=event_info.tmdb_id)
                 SyncHandler().search(sid=subscribe.id)
 
