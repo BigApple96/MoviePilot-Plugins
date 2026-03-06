@@ -3,8 +3,8 @@ from app.schemas import WebhookEventInfo
 from app.schemas.types import EventType
 from app.plugins import _PluginBase
 from app.log import logger
-from app.chain.subscribe import SubscribeOper
-from app.plugins.subscribe import SyncHandler
+from app.db.subscribe_oper import SubscribeOper
+from app.chain.subscribe import SyncHandler
 
 # 适配订阅助手
 try:
@@ -57,35 +57,13 @@ class EmbySubSync(_PluginBase):
         if not event_info:
             return
 
-        # 不在支持范围不处理
         if not self._webhook_actions.get(event_info.event):
             return
 
-        subscribe_oper = SubscribeOper(db=db)
-        sub_item = None
-
-        # 1. 优先使用 TMDB ID 匹配，这是最准确的
         if event_info.tmdb_id:
-            # 注意：不同版本的 MP 这里的 API 名称可能略有不同，通常为 get_by_tmdbid 或 list 过滤
-            subs = subscribe_oper.list() or []
-            sub_item = next((s for s in subs if str(s.tmdb_id) == str(event_info.tmdb_id)), None)
-
-        # 2. 如果没找到，尝试通过标题匹配
-        if not sub_item and event_info.item_name:
-            sub_item = subscribe_oper.get_by_title(event_info.item_name)
-
-        if sub_item:
-            logger.info(f"已匹配到订阅任务：{sub_item.name} (ID: {sub_item.id})")
-            
-            # 实例化订阅处理器
-            sync_handler = SyncHandler()
-            
-            # 准备当前已有的媒体信息 (以《太平年》S1E2为例)
-            # 构造格式为 {季号: [集数列表]}
-            exist_media = {event_info.season_id: [event_info.episode_id]}
-
-            # 入库后立即触发搜索（例如洗版）
-            sync_handler.search(sub=sub_item, media_info=sub_item)
+            if SubscribeOper().exists(tmdbid=event_info.tmdb_id, None, season=event_info.season_id):
+                subscribe = SubscribeOper().get("tmdbid", tmdbid=event_info.tmdb_id)
+                SyncHandler().search(sid=subscribe.id)
 
     def get_state(self) -> bool: return self._enabled
     def stop_service(self): pass
